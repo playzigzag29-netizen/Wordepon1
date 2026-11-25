@@ -1,19 +1,53 @@
-/// Монстр в бою: имя, эмодзи-спрайт и запас здоровья.
+/// Вариант рисованного облика монстра.
+enum MonsterAppearance { slime, goblin, skeleton, orc, dragon }
+
+enum MonsterTheme { forest, desert, city, tower }
+
+/// Монстр в бою: имя, облик и запас здоровья.
 class Monster {
   final String name;
-  final String emoji;
+  final MonsterAppearance appearance;
+  final MonsterTheme theme;
   final int maxHp;
   int hp;
 
-  Monster({required this.name, required this.emoji, required this.maxHp})
-      : hp = maxHp;
+  Monster({
+    required this.name,
+    required this.appearance,
+    required this.theme,
+    required this.maxHp,
+  }) : hp = maxHp;
 }
 
-/// Стандартная волна монстров, появляющихся по очереди.
-List<Monster> buildMonsterWave() => [
-      Monster(name: 'ХУЙ', emoji: '𓀓𓂸', maxHp: 1),
-      Monster(name: 'SIXSEVEEEEEEEN', emoji: '✞67𒀱67✞', maxHp: 67),
-      Monster(name: 'HEREICOMEEE', emoji: '', maxHp: 11),
-      Monster(name: 'BRUH', emoji: '𓃟𓍿𓀏', maxHp: 1),
-      Monster(name: 'YOURFRIEND', emoji: 'Mikro penis', maxHp: 1),
+List<Monster> buildTowerWave(int round) => [
+      Monster(
+        name: 'Слизень-ученик',
+        appearance: MonsterAppearance.slime,
+        theme: MonsterTheme.tower,
+        maxHp: 18 + round * 4,
+      ),
+      Monster(
+        name: 'Гоблин-переписчик',
+        appearance: MonsterAppearance.goblin,
+        theme: MonsterTheme.tower,
+        maxHp: 22 + round * 4,
+      ),
+      Monster(
+        name: 'Костяной маг',
+        appearance: MonsterAppearance.skeleton,
+        theme: MonsterTheme.tower,
+        maxHp: 26 + round * 4,
+      ),
+      Monster(
+        name: 'Голем-хранитель',
+        appearance: MonsterAppearance.orc,
+        theme: MonsterTheme.tower,
+        maxHp: 30 + round * 4,
+      ),
+      Monster(
+        name: 'Дракон башни',
+        appearance: MonsterAppearance.dragon,
+        theme: MonsterTheme.tower,
+        maxHp: 34 + round * 4,
+      ),
     ];

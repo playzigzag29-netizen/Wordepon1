@@ -94,7 +94,7 @@ class _WordFoldersScreenState extends State<WordFoldersScreen> {
     final folders = _repo.folders;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Мои слова'),
+        title: const Text('Мои словари'),
         backgroundColor: const Color(0xFF14161C),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -106,12 +106,11 @@ class _WordFoldersScreenState extends State<WordFoldersScreen> {
         separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
           final folder = folders[index];
-          return Container(
+          return Material(
             key: Key('folderTile_${folder.id}'),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1F2230),
-              borderRadius: BorderRadius.circular(14),
-            ),
+            color: const Color(0xFF1F2230),
+            borderRadius: BorderRadius.circular(14),
+            clipBehavior: Clip.antiAlias,
             child: ListTile(
               leading: Icon(
                 folder.isBuiltIn ? Icons.lock_outline : Icons.folder,

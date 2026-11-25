@@ -12,35 +12,46 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:word_fighter/data/repositories/word_repository_impl.dart';
+import 'package:word_fighter/data/repositories/campaign_progress_repository_impl.dart';
 import 'package:word_fighter/data/services/video_background_service.dart';
+import 'package:word_fighter/domain/entities/campaign_stage.dart';
+import 'package:word_fighter/domain/entities/monster.dart';
 import 'package:word_fighter/domain/entities/word_folder.dart';
 import 'package:word_fighter/domain/entities/word_pair.dart';
 import 'package:word_fighter/presentation/app/word_fighter_app.dart';
+import 'package:word_fighter/presentation/widgets/monster_figure.dart';
 
 Future<void> _pumpApp(WidgetTester tester) async {
   SharedPreferences.setMockInitialValues({});
   WordRepositoryImpl.instance.debugReset();
+  CampaignProgressRepositoryImpl.instance.debugReset();
   VideoBackgroundService.instance.debugReset();
 
   await tester.pumpWidget(const WordFighterApp());
   await tester.pumpAndSettle();
 }
 
-/// Стартует приложение и сразу нажимает "Играть", попадая в GameScreen.
+/// Стартует приложение и открывает первый этап кампании.
 Future<void> _pumpAndStartGame(WidgetTester tester) async {
   await _pumpApp(tester);
-  await tester.tap(find.byKey(const Key('playButton')));
+  await tester.tap(find.byKey(const Key('stageButton_forest')));
   await tester.pumpAndSettle();
 }
 
-/// Находит текущее отображаемое русское слово и возвращает
-/// соответствующую пару WordPair из встроенного словаря SimpleWords.
+Future<void> _openWordFolders(WidgetTester tester) async {
+  await tester.tap(find.byKey(const Key('towerButton')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const Key('towerWordFoldersButton')));
+  await tester.pumpAndSettle();
+}
+
+/// Находит слово текущего этапа и возвращает соответствующую пару.
 WordPair _findCurrentWordPair(WidgetTester tester) {
   final wordFinder = find.byKey(const Key('wordText'));
   expect(wordFinder, findsOneWidget);
 
   final ruWord = tester.widget<Text>(wordFinder).data!;
-  return defaultWordBank.firstWhere((pair) => pair.ru == ruWord);
+  return CampaignStage.forest.words.firstWhere((pair) => pair.ru == ruWord);
 }
 
 Future<void> _enterAnswerAndSubmit(WidgetTester tester, String answer) async {
@@ -50,23 +61,127 @@ Future<void> _enterAnswerAndSubmit(WidgetTester tester, String answer) async {
 }
 
 void main() {
+  testWidgets('отрисовывает все варианты фигур монстров',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: MonsterAppearance.values
+                  .map((appearance) => MonsterFigure(appearance: appearance))
+                  .toList(),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(MonsterFigure), findsNWidgets(5));
+    expect(tester.takeException(), isNull);
+  });
+
   group('MainMenuScreen', () {
     testWidgets('показывает название игры и основные кнопки',
         (WidgetTester tester) async {
       await _pumpApp(tester);
 
       expect(find.text('WORDEAPON'), findsOneWidget);
-      expect(find.byKey(const Key('playButton')), findsOneWidget);
-      expect(find.byKey(const Key('wordFoldersButton')), findsOneWidget);
-      expect(find.byKey(const Key('difficultyChip_normal')), findsOneWidget);
+      expect(find.byKey(const Key('stageButton_forest')), findsOneWidget);
+      expect(find.byKey(const Key('stageButton_desert')), findsOneWidget);
+      expect(find.byKey(const Key('stageButton_city')), findsOneWidget);
+      expect(find.byKey(const Key('towerButton')), findsOneWidget);
+      expect(find.text('Сложность'), findsNothing);
     });
 
-    testWidgets('кнопка "Играть" переводит в GameScreen',
+    testWidgets('первый этап открыт и запускает лесную кампанию',
         (WidgetTester tester) async {
       await _pumpAndStartGame(tester);
 
       expect(find.byKey(const Key('wordText')), findsOneWidget);
       expect(find.byKey(const Key('answerField')), findsOneWidget);
+      expect(find.byType(MonsterFigure), findsOneWidget);
+      expect(find.text('Лесной слизень'), findsOneWidget);
+      expect(find.textContaining('враг 1/20'), findsOneWidget);
+      expect(find.byKey(const Key('bonusProgress')), findsOneWidget);
+      expect(find.byKey(const Key('bonusPercent')), findsOneWidget);
+    });
+
+    testWidgets('этапы Пустыня и Город закрыты в начале игры',
+        (WidgetTester tester) async {
+      await _pumpApp(tester);
+
+      final desertButton = tester.widget<OutlinedButton>(
+        find.byKey(const Key('stageButton_desert')),
+      );
+      final cityButton = tester.widget<OutlinedButton>(
+        find.byKey(const Key('stageButton_city')),
+      );
+      expect(desertButton.onPressed, isNull);
+      expect(cityButton.onPressed, isNull);
+    });
+
+    testWidgets('сохраняет побеждённых врагов при выходе и продолжает этап',
+        (WidgetTester tester) async {
+      await _pumpAndStartGame(tester);
+
+      final pair = _findCurrentWordPair(tester);
+      await _enterAnswerAndSubmit(tester, pair.en);
+      expect(find.textContaining('враг 2/20'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('exitLevelButton')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Побеждено 1'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('stageButton_forest')));
+      await tester.pumpAndSettle();
+      expect(find.text('Гоблин-разведчик'), findsOneWidget);
+      expect(find.textContaining('враг 2/20'), findsOneWidget);
+    });
+  });
+
+  group('Башня мага', () {
+    testWidgets('uses custom dictionaries in the infinite mode',
+        (WidgetTester tester) async {
+      await _pumpApp(tester);
+      final repository = WordRepositoryImpl.instance;
+      await repository.addFolder('Слова башни');
+      final customFolder = repository.folders
+          .firstWhere((folder) => folder.name == 'Слова башни');
+      await repository.addWord(
+        customFolder.id,
+        const WordPair('комета', 'comet'),
+      );
+      await repository.setIncluded(simpleWordsFolderId, false);
+
+      await tester.tap(find.byKey(const Key('towerButton')));
+      await tester.pumpAndSettle();
+      expect(find.text('Бесконечный режим'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('towerWordFoldersButton')));
+      await tester.pumpAndSettle();
+      expect(find.text('Мои словари'), findsOneWidget);
+      expect(find.text('SimpleWords'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('towerStartButton')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Башня · этаж 1'), findsOneWidget);
+      expect(find.byKey(const Key('wordText')), findsOneWidget);
+      expect(find.text('комета'), findsOneWidget);
+
+      await _enterAnswerAndSubmit(tester, 'comet');
+      expect(find.text('Гоблин-переписчик'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('exitLevelButton')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Побеждено врагов: 1'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('towerStartButton')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Башня · этаж 1 · враг 2'), findsOneWidget);
+      expect(find.text('Гоблин-переписчик'), findsOneWidget);
     });
   });
 
@@ -75,8 +190,7 @@ void main() {
         (WidgetTester tester) async {
       await _pumpApp(tester);
 
-      await tester.tap(find.byKey(const Key('wordFoldersButton')));
-      await tester.pumpAndSettle();
+      await _openWordFolders(tester);
 
       expect(find.text('SimpleWords'), findsOneWidget);
       expect(find.text('${defaultWordBank.length} слов · встроенная'),
@@ -91,9 +205,9 @@ void main() {
         (WidgetTester tester) async {
       await _pumpApp(tester);
 
-      await tester.tap(find.byKey(const Key('wordFoldersButton')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(Key('folderTile_$simpleWordsFolderId')));
+      await _openWordFolders(tester);
+      await tester
+          .tap(find.byKey(const Key('folderTile_$simpleWordsFolderId')));
       await tester.pumpAndSettle();
 
       expect(find.text(defaultWordBank.first.ru), findsOneWidget);
@@ -103,8 +217,7 @@ void main() {
     testWidgets('можно создать новую папку', (WidgetTester tester) async {
       await _pumpApp(tester);
 
-      await tester.tap(find.byKey(const Key('wordFoldersButton')));
-      await tester.pumpAndSettle();
+      await _openWordFolders(tester);
 
       await tester.tap(find.byKey(const Key('addFolderButton')));
       await tester.pumpAndSettle();
@@ -121,8 +234,7 @@ void main() {
       await _pumpApp(tester);
 
       await WordRepositoryImpl.instance.addFolder('Еда');
-      await tester.tap(find.byKey(const Key('wordFoldersButton')));
-      await tester.pumpAndSettle();
+      await _openWordFolders(tester);
 
       await tester.tap(find.text('Еда'));
       await tester.pumpAndSettle();
@@ -143,8 +255,7 @@ void main() {
       await _pumpApp(tester);
 
       await WordRepositoryImpl.instance.addFolder('Временная');
-      await tester.tap(find.byKey(const Key('wordFoldersButton')));
-      await tester.pumpAndSettle();
+      await _openWordFolders(tester);
 
       final folderId = WordRepositoryImpl.instance.folders
           .firstWhere((f) => f.name == 'Временная')
@@ -164,9 +275,9 @@ void main() {
 
       // Выключаем встроенную папку — пул слов не должен опустеть
       // благодаря защите в wordsForGame (fallback на defaultWordBank).
-      await tester.tap(find.byKey(const Key('wordFoldersButton')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(Key('includeCheckbox_$simpleWordsFolderId')));
+      await _openWordFolders(tester);
+      await tester
+          .tap(find.byKey(const Key('includeCheckbox_$simpleWordsFolderId')));
       await tester.pumpAndSettle();
 
       expect(WordRepositoryImpl.instance.wordsForGame, isNotEmpty);
@@ -182,7 +293,7 @@ void main() {
       await _enterAnswerAndSubmit(tester, pair.en);
 
       expect(find.text('Очки: 10'), findsOneWidget);
-      expect(find.textContaining('Верно'), findsOneWidget);
+      expect(find.textContaining('повержен!'), findsOneWidget);
     });
 
     testWidgets('неправильный перевод снижает HP игрока и не меняет счёт',
@@ -195,13 +306,9 @@ void main() {
       expect(find.textContaining('Неверно'), findsOneWidget);
     });
 
-    testWidgets('на лёгкой сложности игра не заканчивается за 10 ошибок',
+    testWidgets('этап Лес не заканчивается за 10 ошибок',
         (WidgetTester tester) async {
-      await _pumpApp(tester);
-      await tester.tap(find.byKey(const Key('difficultyChip_easy')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('playButton')));
-      await tester.pumpAndSettle();
+      await _pumpAndStartGame(tester);
 
       for (var i = 0; i < 10; i++) {
         await _enterAnswerAndSubmit(tester, 'неверный_ответ_$i');
@@ -209,12 +316,11 @@ void main() {
       expect(find.text('Игра окончена'), findsNothing);
     });
 
-    testWidgets(
-        'после серии неправильных ответов на средней сложности наступает Game Over',
+    testWidgets('после серии ошибок на этапе Лес наступает Game Over',
         (WidgetTester tester) async {
       await _pumpAndStartGame(tester);
 
-      for (var i = 0; i < 10; i++) {
+      for (var i = 0; i < 17; i++) {
         await _enterAnswerAndSubmit(tester, 'неверный_ответ_$i');
       }
 
@@ -226,7 +332,7 @@ void main() {
         (WidgetTester tester) async {
       await _pumpAndStartGame(tester);
 
-      for (var i = 0; i < 10; i++) {
+      for (var i = 0; i < 17; i++) {
         await _enterAnswerAndSubmit(tester, 'неверный_ответ_$i');
       }
       expect(find.text('Игра окончена'), findsOneWidget);
@@ -243,7 +349,7 @@ void main() {
         (WidgetTester tester) async {
       await _pumpAndStartGame(tester);
 
-      for (var i = 0; i < 10; i++) {
+      for (var i = 0; i < 17; i++) {
         await _enterAnswerAndSubmit(tester, 'неверный_ответ_$i');
       }
       expect(find.text('Игра окончена'), findsOneWidget);
@@ -252,7 +358,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('WORDEAPON'), findsOneWidget);
-      expect(find.byKey(const Key('playButton')), findsOneWidget);
+      expect(find.byKey(const Key('stageButton_forest')), findsOneWidget);
     });
   });
 }

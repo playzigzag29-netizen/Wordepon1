@@ -1,19 +1,27 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 
 import '../../core/locator.dart';
-import '../../domain/entities/difficulty.dart';
+import '../../domain/entities/campaign_stage.dart';
 import '../../domain/entities/monster.dart';
 import '../../domain/entities/word_pair.dart';
+import '../../domain/services/speed_damage_calculator.dart';
 import '../widgets/battle_background_video.dart';
 import '../widgets/black_hero_figure.dart';
+import '../widgets/monster_figure.dart';
 
 /// Экран боя: игрок переводит слова, чтобы наносить урон монстрам.
 class GameScreen extends StatefulWidget {
-  final Difficulty difficulty;
+  final CampaignStage? stage;
 
-  const GameScreen({super.key, this.difficulty = Difficulty.normal});
+  const GameScreen.campaign({
+    super.key,
+    required this.stage,
+  });
+
+  const GameScreen.tower({super.key}) : stage = null;
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -24,11 +32,15 @@ class _GameScreenState extends State<GameScreen>
   final TextEditingController _inputController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   final Random _random = Random();
+  final Stopwatch _answerTimer = Stopwatch();
+  Timer? _bonusProgressTimer;
 
   late final List<WordPair> _wordPool;
 
   late List<Monster> _wave;
   int _monsterIndex = 0;
+  int _towerRound = 0;
+  int _enemiesDefeated = 0;
   late Monster _currentMonster;
 
   int _playerHp = 100;
@@ -46,12 +58,32 @@ class _GameScreenState extends State<GameScreen>
   bool _monsterIsHitting = false;
 
   bool _gameOver = false;
+  bool _stageCompleted = false;
+  bool _isExiting = false;
+  String? _stageCompletionError;
+
+  double get _bonusProgress => (1 -
+          _answerTimer.elapsedMilliseconds /
+              speedDamageBonusWindow.inMilliseconds)
+      .clamp(0.0, 1.0)
+      .toDouble();
 
   @override
   void initState() {
     super.initState();
-    _wordPool = Locator.wordRepository.wordsForGame;
-    _wave = buildMonsterWave();
+    _wordPool = widget.stage?.words ?? Locator.wordRepository.wordsForGame;
+    final progress = Locator.campaignProgressRepository;
+    final stage = widget.stage;
+    if (stage != null) {
+      _enemiesDefeated = progress.defeatedEnemies(stage);
+      _monsterIndex = _enemiesDefeated;
+      _wave = stage.buildEnemies();
+    } else {
+      _enemiesDefeated = progress.towerDefeatedEnemies;
+      _towerRound = _enemiesDefeated ~/ 5;
+      _monsterIndex = _enemiesDefeated % 5;
+      _wave = buildTowerWave(_towerRound);
+    }
     _currentMonster = _wave[_monsterIndex];
     _pickNewWord();
 
@@ -63,6 +95,7 @@ class _GameScreenState extends State<GameScreen>
 
   @override
   void dispose() {
+    _bonusProgressTimer?.cancel();
     _inputController.dispose();
     _focusNode.dispose();
     _hitAnimController.dispose();
@@ -71,6 +104,21 @@ class _GameScreenState extends State<GameScreen>
 
   void _pickNewWord() {
     _currentWord = _wordPool[_random.nextInt(_wordPool.length)];
+    _bonusProgressTimer?.cancel();
+    _answerTimer
+      ..reset()
+      ..start();
+    _bonusProgressTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {});
+      if (_answerTimer.elapsed >= speedDamageBonusWindow) {
+        timer.cancel();
+        _bonusProgressTimer = null;
+      }
+    });
   }
 
   void _submitAnswer() {
@@ -80,17 +128,29 @@ class _GameScreenState extends State<GameScreen>
 
     if (answer.isEmpty) return;
 
-    answer == correct ? _onCorrectAnswer() : _onWrongAnswer();
+    if (answer == correct) {
+      _onCorrectAnswer(_answerTimer.elapsed);
+    } else {
+      _onWrongAnswer();
+    }
 
     _inputController.clear();
     _focusNode.requestFocus();
   }
 
-  void _onCorrectAnswer() {
-    const damageToMonster = 12;
+  void _onCorrectAnswer(Duration answerTime) {
+    const baseDamage = 12;
+    final damageToMonster = damageWithSpeedBonus(
+      baseDamage: baseDamage,
+      answerTime: answerTime,
+    );
+    final bonusDamage = damageToMonster - baseDamage;
+    _answerTimer.stop();
+    _bonusProgressTimer?.cancel();
+    _bonusProgressTimer = null;
     setState(() {
       _playerIsHitting = true;
-      _feedback = 'Верно! 🗡️';
+      _feedback = 'Верно! Бонус урона: +$bonusDamage 🗡️';
       _feedbackColor = Colors.greenAccent;
       _currentMonster.hp = max(0, _currentMonster.hp - damageToMonster);
       _score += 10;
@@ -109,7 +169,8 @@ class _GameScreenState extends State<GameScreen>
   }
 
   void _onWrongAnswer() {
-    final damageToPlayer = (10 * widget.difficulty.damageMultiplier).round();
+    final damageMultiplier = widget.stage?.damageMultiplier ?? 1.0;
+    final damageToPlayer = (10 * damageMultiplier).round();
     setState(() {
       _monsterIsHitting = true;
       _feedback = 'Неверно! Правильно: "${_currentWord.en}"';
@@ -130,32 +191,124 @@ class _GameScreenState extends State<GameScreen>
   }
 
   void _onMonsterDefeated() {
+    Locator.videoBackgroundService.switchToRandomBackground();
+    _enemiesDefeated++;
+
+    if (widget.stage != null && _enemiesDefeated >= widget.stage!.enemyCount) {
+      unawaited(_completeStage());
+      return;
+    }
+
+    if (widget.stage == null && _monsterIndex + 1 >= _wave.length) {
+      setState(() {
+        _feedback = 'Этаж ${_towerRound + 1} пройден! 🎉';
+        _feedbackColor = Colors.amberAccent;
+        _towerRound++;
+        _wave = buildTowerWave(_towerRound);
+        _monsterIndex = 0;
+        _currentMonster = _wave[_monsterIndex];
+        _pickNewWord();
+      });
+      return;
+    }
+
     setState(() {
       _feedback = '${_currentMonster.name} повержен! 🎉';
       _feedbackColor = Colors.amberAccent;
       _monsterIndex++;
-
-      if (_monsterIndex >= _wave.length) {
-        // Волна пройдена — начинаем заново с более сильными монстрами.
-        _wave = buildMonsterWave();
-        for (final m in _wave) {
-          m.hp = (m.maxHp * 1.3).round();
-        }
-        _monsterIndex = 0;
-      }
       _currentMonster = _wave[_monsterIndex];
       _pickNewWord();
     });
   }
 
-  void _restartGame() {
+  Future<void> _completeStage() async {
+    final stage = widget.stage!;
+    try {
+      await Locator.campaignProgressRepository.unlockNextStage(stage);
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'campaign progress',
+        ),
+      );
+      if (!mounted) return;
+      setState(() => _stageCompletionError = error.toString());
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() => _stageCompleted = true);
+  }
+
+  Future<void> _exitLevel() async {
+    if (_isExiting) return;
+    _isExiting = true;
+
+    try {
+      final progress = Locator.campaignProgressRepository;
+      final stage = widget.stage;
+      if (stage == null) {
+        await progress.saveTowerDefeatedEnemies(_enemiesDefeated);
+      } else {
+        await progress.saveDefeatedEnemies(stage, _enemiesDefeated);
+      }
+    } catch (error, stackTrace) {
+      _isExiting = false;
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'game progress',
+        ),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось сохранить прогресс уровня.')),
+      );
+      return;
+    }
+
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _restartGame() async {
+    try {
+      final progress = Locator.campaignProgressRepository;
+      final stage = widget.stage;
+      if (stage == null) {
+        await progress.saveTowerDefeatedEnemies(0);
+      } else {
+        await progress.saveDefeatedEnemies(stage, 0);
+      }
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'game progress',
+        ),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось сбросить прогресс уровня.')),
+      );
+      return;
+    }
+
+    if (!mounted) return;
     setState(() {
-      _wave = buildMonsterWave();
+      _wave = widget.stage?.buildEnemies() ?? buildTowerWave(0);
       _monsterIndex = 0;
+      _towerRound = 0;
+      _enemiesDefeated = 0;
       _currentMonster = _wave[_monsterIndex];
       _playerHp = _playerMaxHp;
       _score = 0;
       _gameOver = false;
+      _stageCompleted = false;
+      _stageCompletionError = null;
       _feedback = null;
       _pickNewWord();
     });
@@ -169,12 +322,18 @@ class _GameScreenState extends State<GameScreen>
           const Positioned.fill(child: BattleBackgroundVideo()),
           // Затемнение поверх видео для читаемости текста.
           Positioned.fill(
-            child: Container(color: Colors.black.withOpacity(0.35)),
+            child: Container(color: Colors.black.withValues(alpha: 0.35)),
           ),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: _gameOver ? _buildGameOver() : _buildGame(),
+              child: _stageCompleted
+                  ? _buildStageComplete()
+                  : _stageCompletionError != null
+                      ? _buildStageCompletionError()
+                      : _gameOver
+                          ? _buildGameOver()
+                          : _buildGame(),
             ),
           ),
         ],
@@ -190,8 +349,52 @@ class _GameScreenState extends State<GameScreen>
         Expanded(child: _buildBattleArea()),
         const SizedBox(height: 16),
         _buildWordCard(),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
+        _buildBonusIndicator(),
+        const SizedBox(height: 8),
         _buildInputArea(),
+      ],
+    );
+  }
+
+  Widget _buildBonusIndicator() {
+    final progress = _bonusProgress;
+    return Row(
+      key: const Key('bonusIndicator'),
+      children: [
+        const Text(
+          'БОНУС',
+          style: TextStyle(
+            color: Colors.white54,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              key: const Key('bonusProgress'),
+              value: progress,
+              minHeight: 6,
+              backgroundColor: Colors.white12,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                progress > 0.3 ? Colors.amberAccent : Colors.redAccent,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          '+${(progress * 100).round()}%',
+          key: const Key('bonusPercent'),
+          style: const TextStyle(
+            color: Colors.amberAccent,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ],
     );
   }
@@ -199,6 +402,12 @@ class _GameScreenState extends State<GameScreen>
   Widget _buildTopBar() {
     return Row(
       children: [
+        IconButton(
+          key: const Key('exitLevelButton'),
+          tooltip: 'Выйти из уровня',
+          onPressed: () => unawaited(_exitLevel()),
+          icon: const Icon(Icons.arrow_back, color: Colors.white70),
+        ),
         Expanded(
             child: _buildHealthBar(
                 'Игрок', _playerHp, _playerMaxHp, Colors.blueAccent)),
@@ -214,7 +423,9 @@ class _GameScreenState extends State<GameScreen>
                   fontWeight: FontWeight.bold),
             ),
             Text(
-              widget.difficulty.label,
+              widget.stage == null
+                  ? 'Башня · этаж ${_towerRound + 1} · враг ${_monsterIndex + 1}'
+                  : '${widget.stage!.title} · враг ${_enemiesDefeated + 1}/${widget.stage!.enemyCount}',
               style: const TextStyle(color: Colors.white38, fontSize: 11),
             ),
           ],
@@ -280,8 +491,10 @@ class _GameScreenState extends State<GameScreen>
                   child: Transform.scale(scale: scale, child: child),
                 );
               },
-              child: Text(_currentMonster.emoji,
-                  style: const TextStyle(fontSize: 90)),
+              child: MonsterFigure(
+                appearance: _currentMonster.appearance,
+                theme: _currentMonster.theme,
+              ),
             ),
             const SizedBox(height: 8),
             Text(_currentMonster.name,
@@ -396,8 +609,8 @@ class _GameScreenState extends State<GameScreen>
         children: [
           const Text('💀', style: TextStyle(fontSize: 72)),
           const SizedBox(height: 16),
-          const Text('Игра окончена',
-              style: TextStyle(
+          Text(widget.stage == null ? 'Башня окончена' : 'Игра окончена',
+              style: const TextStyle(
                   color: Colors.white,
                   fontSize: 24,
                   fontWeight: FontWeight.bold)),
@@ -408,7 +621,7 @@ class _GameScreenState extends State<GameScreen>
           const SizedBox(height: 24),
           ElevatedButton(
             key: const Key('restartButton'),
-            onPressed: _restartGame,
+            onPressed: () => unawaited(_restartGame()),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF6C5CE7),
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
@@ -421,9 +634,74 @@ class _GameScreenState extends State<GameScreen>
           const SizedBox(height: 12),
           TextButton(
             key: const Key('menuButton'),
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => unawaited(_exitLevel()),
             child:
                 const Text('В меню', style: TextStyle(color: Colors.white54)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStageComplete() {
+    final stage = widget.stage!;
+    final hasNextStage = stage.index < CampaignStage.values.length - 1;
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.emoji_events, color: Colors.amberAccent, size: 72),
+          const SizedBox(height: 16),
+          const Text(
+            'Этап пройден!',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            hasNextStage
+                ? 'Этап «${CampaignStage.values[stage.index + 1].title}» открыт!'
+                : 'Кампания завершена!',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white70),
+          ),
+          const SizedBox(height: 8),
+          Text('Счёт: $_score',
+              style: const TextStyle(color: Colors.amberAccent)),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            key: const Key('stageCompleteMenuButton'),
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('В меню'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStageCompletionError() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text(
+            'Не удалось сохранить прогресс этапа.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white, fontSize: 18),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _stageCompletionError!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white54),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => unawaited(_completeStage()),
+            child: const Text('Повторить'),
           ),
         ],
       ),
