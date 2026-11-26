@@ -19,17 +19,17 @@ void main() {
 
     expect(repository.isUnlocked(CampaignStage.forest), isTrue);
     expect(repository.isUnlocked(CampaignStage.desert), isFalse);
-    expect(repository.isUnlocked(CampaignStage.city), isFalse);
+    expect(repository.isUnlocked(CampaignStage.castle), isFalse);
 
     await repository.unlockNextStage(CampaignStage.desert);
     expect(repository.isUnlocked(CampaignStage.desert), isFalse);
 
     await repository.unlockNextStage(CampaignStage.forest);
     expect(repository.isUnlocked(CampaignStage.desert), isTrue);
-    expect(repository.isUnlocked(CampaignStage.city), isFalse);
+    expect(repository.isUnlocked(CampaignStage.castle), isFalse);
 
     await repository.unlockNextStage(CampaignStage.desert);
-    expect(repository.isUnlocked(CampaignStage.city), isTrue);
+    expect(repository.isUnlocked(CampaignStage.castle), isTrue);
   });
 
   test('keeps unlocked stages after reload', () async {
@@ -40,7 +40,7 @@ void main() {
     await repository.load();
 
     expect(repository.isUnlocked(CampaignStage.desert), isTrue);
-    expect(repository.isUnlocked(CampaignStage.city), isFalse);
+    expect(repository.isUnlocked(CampaignStage.castle), isFalse);
   });
 
   test('saves defeated counts for campaign stages and the tower', () async {
@@ -53,6 +53,7 @@ void main() {
 
     expect(repository.defeatedEnemies(CampaignStage.forest), 7);
     expect(repository.towerDefeatedEnemies, 13);
+    expect(repository.towerRecord, 13);
 
     await repository.unlockNextStage(CampaignStage.forest);
     expect(repository.defeatedEnemies(CampaignStage.forest), 0);

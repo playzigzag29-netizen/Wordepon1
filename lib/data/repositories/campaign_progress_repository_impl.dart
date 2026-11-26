@@ -11,9 +11,11 @@ class CampaignProgressRepositoryImpl implements CampaignProgressRepository {
 
   static const _highestUnlockedStageKey = 'campaign_highest_unlocked_stage';
   static const _towerDefeatedEnemiesKey = 'tower_defeated_enemies';
+  static const _towerRecordKey = 'tower_record';
 
   int _highestUnlockedStageIndex = CampaignStage.forest.index;
   int _towerDefeatedEnemies = 0;
+  int _towerRecord = 0;
   final Map<CampaignStage, int> _defeatedEnemies = {};
   bool _loaded = false;
 
@@ -22,6 +24,9 @@ class CampaignProgressRepositoryImpl implements CampaignProgressRepository {
 
   @override
   int get towerDefeatedEnemies => _towerDefeatedEnemies;
+
+  @override
+  int get towerRecord => _towerRecord;
 
   @override
   bool isUnlocked(CampaignStage stage) =>
@@ -41,6 +46,8 @@ class CampaignProgressRepositoryImpl implements CampaignProgressRepository {
     _towerDefeatedEnemies = (preferences.getInt(_towerDefeatedEnemiesKey) ?? 0)
         .clamp(0, 1 << 30)
         .toInt();
+    _towerRecord =
+        (preferences.getInt(_towerRecordKey) ?? 0).clamp(0, 1 << 30).toInt();
     for (final stage in CampaignStage.values) {
       final savedCount =
           preferences.getInt(_stageDefeatedEnemiesKey(stage)) ?? 0;
@@ -77,11 +84,16 @@ class CampaignProgressRepositoryImpl implements CampaignProgressRepository {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setInt(_towerDefeatedEnemiesKey, savedCount);
     _towerDefeatedEnemies = savedCount;
+    if (savedCount > _towerRecord) {
+      await preferences.setInt(_towerRecordKey, savedCount);
+      _towerRecord = savedCount;
+    }
   }
 
   void debugReset() {
     _highestUnlockedStageIndex = CampaignStage.forest.index;
     _towerDefeatedEnemies = 0;
+    _towerRecord = 0;
     _defeatedEnemies.clear();
     _loaded = false;
   }

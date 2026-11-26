@@ -71,6 +71,9 @@ class _GameScreenState extends State<GameScreen>
   @override
   void initState() {
     super.initState();
+    if (widget.stage == null) {
+      Locator.videoBackgroundService.switchToRandomBackground();
+    }
     _wordPool = widget.stage?.words ?? Locator.wordRepository.wordsForGame;
     final progress = Locator.campaignProgressRepository;
     final stage = widget.stage;
@@ -183,6 +186,10 @@ class _GameScreenState extends State<GameScreen>
       setState(() => _monsterIsHitting = false);
 
       if (_playerHp <= 0) {
+        if (widget.stage == null) {
+          unawaited(Locator.campaignProgressRepository
+              .saveTowerDefeatedEnemies(_enemiesDefeated));
+        }
         setState(() => _gameOver = true);
       } else {
         _pickNewWord();
@@ -191,7 +198,9 @@ class _GameScreenState extends State<GameScreen>
   }
 
   void _onMonsterDefeated() {
-    Locator.videoBackgroundService.switchToRandomBackground();
+    if (widget.stage == null) {
+      Locator.videoBackgroundService.switchToRandomBackground();
+    }
     _enemiesDefeated++;
 
     if (widget.stage != null && _enemiesDefeated >= widget.stage!.enemyCount) {
@@ -319,7 +328,7 @@ class _GameScreenState extends State<GameScreen>
     return Scaffold(
       body: Stack(
         children: [
-          const Positioned.fill(child: BattleBackgroundVideo()),
+          Positioned.fill(child: BattleBackgroundVideo(stage: widget.stage)),
           // Затемнение поверх видео для читаемости текста.
           Positioned.fill(
             child: Container(color: Colors.black.withValues(alpha: 0.35)),

@@ -3,11 +3,14 @@ import 'package:video_player/video_player.dart';
 
 import '../../core/locator.dart';
 import '../../data/services/video_background_service.dart';
+import '../../domain/entities/campaign_stage.dart';
 
 /// Проигрывает уже предзагруженное видео фона боя: запускает при
 /// появлении экрана и ставит на паузу при уходе с него.
 class BattleBackgroundVideo extends StatefulWidget {
-  const BattleBackgroundVideo({super.key});
+  final CampaignStage? stage;
+
+  const BattleBackgroundVideo({super.key, this.stage});
 
   @override
   State<BattleBackgroundVideo> createState() => _BattleBackgroundVideoState();
@@ -40,6 +43,15 @@ class _BattleBackgroundVideoState extends State<BattleBackgroundVideo> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.stage != null) {
+      final asset = switch (widget.stage!) {
+        CampaignStage.forest => 'assets/themes/forest.jpg',
+        CampaignStage.desert => 'assets/themes/desert.jpg',
+        CampaignStage.castle => 'assets/themes/roadtocastle.jpg',
+      };
+      return Image.asset(asset, fit: BoxFit.cover);
+    }
+
     final controller = _controller;
     if (controller == null || !controller.value.isInitialized) {
       // Видео недоступно — тёмный фон вместо ошибки.

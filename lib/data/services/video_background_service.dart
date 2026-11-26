@@ -10,10 +10,8 @@ class VideoBackgroundService extends ChangeNotifier {
   static final VideoBackgroundService instance = VideoBackgroundService._();
 
   static const List<String> battleBackgroundAssets = [
-    'assets/themes/background1.mp4',
-    'assets/themes/background2.mp4',
-    'assets/themes/background3.mp4',
-    'assets/themes/background4.mp4',
+    'assets/themes/backgroundTOWER1.mp4',
+    'assets/themes/backgroundTOWER2.mp4',
   ];
 
   VideoPlayerController? controller;

@@ -90,7 +90,7 @@ void main() {
       expect(find.text('WORDEAPON'), findsOneWidget);
       expect(find.byKey(const Key('stageButton_forest')), findsOneWidget);
       expect(find.byKey(const Key('stageButton_desert')), findsOneWidget);
-      expect(find.byKey(const Key('stageButton_city')), findsOneWidget);
+      expect(find.byKey(const Key('stageButton_castle')), findsOneWidget);
       expect(find.byKey(const Key('towerButton')), findsOneWidget);
       expect(find.text('Сложность'), findsNothing);
     });
@@ -108,7 +108,7 @@ void main() {
       expect(find.byKey(const Key('bonusPercent')), findsOneWidget);
     });
 
-    testWidgets('этапы Пустыня и Город закрыты в начале игры',
+    testWidgets('этапы Пустыня и Путь к замку закрыты в начале игры',
         (WidgetTester tester) async {
       await _pumpApp(tester);
 
@@ -116,7 +116,7 @@ void main() {
         find.byKey(const Key('stageButton_desert')),
       );
       final cityButton = tester.widget<OutlinedButton>(
-        find.byKey(const Key('stageButton_city')),
+        find.byKey(const Key('stageButton_castle')),
       );
       expect(desertButton.onPressed, isNull);
       expect(cityButton.onPressed, isNull);
@@ -176,7 +176,7 @@ void main() {
       expect(find.text('Гоблин-переписчик'), findsOneWidget);
       await tester.tap(find.byKey(const Key('exitLevelButton')));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Побеждено врагов: 1'), findsOneWidget);
+      expect(find.textContaining('Рекорд: 1 врагов'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('towerStartButton')));
       await tester.pumpAndSettle();

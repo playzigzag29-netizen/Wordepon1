@@ -2,49 +2,49 @@ import 'campaign_word_banks.dart';
 import 'monster.dart';
 import 'word_pair.dart';
 
-enum CampaignStage { forest, desert, city }
+enum CampaignStage { forest, desert, castle }
 
 extension CampaignStageDetails on CampaignStage {
   String get title => switch (this) {
         CampaignStage.forest => 'Лес',
         CampaignStage.desert => 'Пустыня',
-        CampaignStage.city => 'Город',
+        CampaignStage.castle => 'Путь к замку',
       };
 
   String get subtitle => switch (this) {
         CampaignStage.forest => 'Тропа зелёных чащ',
         CampaignStage.desert => 'Путь через пески',
-        CampaignStage.city => 'Битва среди небоскрёбов',
+        CampaignStage.castle => 'Финальная дорога до древнего замка',
       };
 
   int get enemyCount => switch (this) {
         CampaignStage.forest => 20,
         CampaignStage.desert => 30,
-        CampaignStage.city => 35,
+        CampaignStage.castle => 35,
       };
 
   double get damageMultiplier => switch (this) {
         CampaignStage.forest => 0.6,
         CampaignStage.desert => 1,
-        CampaignStage.city => 1.8,
+        CampaignStage.castle => 1.8,
       };
 
   int get enemyHealthGrowth => switch (this) {
         CampaignStage.forest => 2,
         CampaignStage.desert => 4,
-        CampaignStage.city => 6,
+        CampaignStage.castle => 6,
       };
 
   MonsterTheme get monsterTheme => switch (this) {
         CampaignStage.forest => MonsterTheme.forest,
         CampaignStage.desert => MonsterTheme.desert,
-        CampaignStage.city => MonsterTheme.city,
+        CampaignStage.castle => MonsterTheme.castle,
       };
 
   List<WordPair> get words => switch (this) {
         CampaignStage.forest => forestWordBank,
         CampaignStage.desert => desertWordBank,
-        CampaignStage.city => cityWordBank,
+        CampaignStage.castle => castleWordBank,
       };
 
   List<Monster> buildEnemies() {
@@ -68,15 +68,15 @@ extension CampaignStageDetails on CampaignStage {
           const _MonsterTemplate('Каменный голем', MonsterAppearance.orc, 28),
           const _MonsterTemplate('Песчаный змей', MonsterAppearance.dragon, 30),
         ],
-      CampaignStage.city => [
-          const _MonsterTemplate('Сбойный дрон', MonsterAppearance.slime, 34),
+      CampaignStage.castle => [
           const _MonsterTemplate(
-              'Уличный налётчик', MonsterAppearance.goblin, 36),
+              'Болотный слизень', MonsterAppearance.slime, 34),
           const _MonsterTemplate(
-              'Стальной скелет', MonsterAppearance.skeleton, 38),
-          const _MonsterTemplate('Броневой громила', MonsterAppearance.orc, 40),
+              'Лесной разбойник', MonsterAppearance.goblin, 36),
           const _MonsterTemplate(
-              'Механический дракон', MonsterAppearance.dragon, 42),
+              'Костяной рыцарь', MonsterAppearance.skeleton, 38),
+          const _MonsterTemplate('Тролль мостовой', MonsterAppearance.orc, 40),
+          const _MonsterTemplate('Дракон замка', MonsterAppearance.dragon, 42),
         ],
     };
 

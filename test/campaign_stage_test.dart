@@ -9,7 +9,7 @@ void main() {
     );
     expect(
       CampaignStage.values.map((stage) => stage.words.length).toList(),
-      [50, 100, 200],
+      [50, 100, 100],
     );
   });
 

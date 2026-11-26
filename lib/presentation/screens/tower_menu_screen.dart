@@ -32,6 +32,7 @@ class _TowerMenuScreenState extends State<TowerMenuScreen> {
     final wordCount = Locator.wordRepository.wordsForGame.length;
     final defeatedCount =
         Locator.campaignProgressRepository.towerDefeatedEnemies;
+    final record = Locator.campaignProgressRepository.towerRecord;
 
     return Scaffold(
       appBar: AppBar(
@@ -57,8 +58,7 @@ class _TowerMenuScreenState extends State<TowerMenuScreen> {
               const SizedBox(height: 8),
               Text(
                 'Поднимайся этаж за этажом и сражайся со всё более сильными врагами. '
-                'В игре используются включённые словари ($wordCount слов).'
-                '${defeatedCount > 0 ? ' Побеждено врагов: $defeatedCount.' : ''}',
+                'В игре используются включённые словари ($wordCount слов).',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white60, height: 1.4),
               ),
@@ -89,6 +89,18 @@ class _TowerMenuScreenState extends State<TowerMenuScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   child: const Text('Мои словари'),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                record > 0
+                    ? 'Рекорд: $record врагов'
+                    : 'Рекорд: ещё не установлен',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white54,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],

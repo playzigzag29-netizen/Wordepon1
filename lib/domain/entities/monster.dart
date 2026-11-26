@@ -1,7 +1,7 @@
 /// Вариант рисованного облика монстра.
 enum MonsterAppearance { slime, goblin, skeleton, orc, dragon }
 
-enum MonsterTheme { forest, desert, city, tower }
+enum MonsterTheme { forest, desert, castle, tower }
 
 /// Монстр в бою: имя, облик и запас здоровья.
 class Monster {

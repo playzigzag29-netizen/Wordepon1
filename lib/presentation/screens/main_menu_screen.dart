@@ -49,12 +49,6 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 letterSpacing: 2,
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Выбери путь и докажи силу слов',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white54, fontSize: 14),
-            ),
             const SizedBox(height: 30),
             const Text(
               'КАМПАНИЯ',
@@ -68,6 +62,16 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
             const SizedBox(height: 10),
             for (final stage in CampaignStage.values) _stageButton(stage),
             const SizedBox(height: 18),
+            const Text(
+              'БЕСКОНЕЧНЫЙ РЕЖИМ',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.4,
+              ),
+            ),
+            const SizedBox(height: 10),
             OutlinedButton.icon(
               key: const Key('towerButton'),
               onPressed: _openTower,
@@ -97,7 +101,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     final icon = switch (stage) {
       CampaignStage.forest => Icons.forest,
       CampaignStage.desert => Icons.wb_sunny_outlined,
-      CampaignStage.city => Icons.location_city,
+      CampaignStage.castle => Icons.castle,
     };
 
     return Padding(

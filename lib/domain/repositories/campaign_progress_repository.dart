@@ -3,6 +3,7 @@ import '../entities/campaign_stage.dart';
 abstract class CampaignProgressRepository {
   int get highestUnlockedStageIndex;
   int get towerDefeatedEnemies;
+  int get towerRecord;
 
   bool isUnlocked(CampaignStage stage);
   int defeatedEnemies(CampaignStage stage);

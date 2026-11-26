@@ -31,21 +31,21 @@ class _MonsterPainter extends CustomPainter {
   Color get _creatureColor => switch (theme) {
         MonsterTheme.forest => const Color(0xFF55D68B),
         MonsterTheme.desert => const Color(0xFFD49A45),
-        MonsterTheme.city => const Color(0xFF6886A3),
+        MonsterTheme.castle => const Color(0xFF7C8A96),
         MonsterTheme.tower => const Color(0xFF8255DD),
       };
 
   Color get _secondaryColor => switch (theme) {
         MonsterTheme.forest => const Color(0xFF375E42),
         MonsterTheme.desert => const Color(0xFF765035),
-        MonsterTheme.city => const Color(0xFF35465B),
+        MonsterTheme.castle => const Color(0xFF4A3F3A),
         MonsterTheme.tower => const Color(0xFF51358F),
       };
 
   Color get _boneColor => switch (theme) {
         MonsterTheme.forest => const Color(0xFFE2D9C5),
         MonsterTheme.desert => const Color(0xFFEAD4A5),
-        MonsterTheme.city => const Color(0xFFD8E1EA),
+        MonsterTheme.castle => const Color(0xFFE7DFCD),
         MonsterTheme.tower => const Color(0xFFE0D4F5),
       };
 
